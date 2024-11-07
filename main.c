@@ -4,6 +4,7 @@
 #include <string.h>
 #include <time.h>
 
+
 #define DEFAULT '~'
 #define PLACED_SHIP 'O'
 #define HIT '0'
@@ -30,9 +31,11 @@
 #define NULL_COORD {27, 27}     // bigger than max board-size => never used
 
 #ifdef _WIN32
-    #define CONSOLE system("cls")   // makes ANSI work
+    #define CONSOLE system("cls") // makes ANSI work
+    #include <windows.h>  //funcion sleep()  
 #else
-    #define CONSOLE 1			// literary makes nothing
+    #define CONSOLE 1 // literary makes nothing
+    #include <unistd.h>			
 #endif
 
 typedef struct player_fleet {
@@ -680,36 +683,43 @@ void player_vs_player(unsigned int board_size) {
 
 
 int player_turn(PLAYER* player_active, PLAYER* player_opponent, unsigned int board_size) {
-    /* Pointers to active player's and opponent's struct are passed and edited. Function prints boards
-    from active_player's perspective and asks him for coordinates to shoot at. This is repeated until
-    valid coordinates are passed. If player hits opponent, ship_hit_check is called (checks, if that hit
-    was deadly). If yes, victory condition is checked. If satisfied, returns 1. Else returns 0 */
-
     _COORD aim;
     int flag;
 
-    default_screen(*player_active, *player_opponent, board_size);
-    aim = get_coord();
-    flag = fire(*player_opponent, aim, board_size);
-    while(flag == INVALID) {    // repeats until valid coordinates are given
-        printf(UNDERLINE_COLOR"\n\tNo se puede disparar ahi! Proba de nuevo");
+    do {
+        default_screen(*player_active, *player_opponent, board_size);
         aim = get_coord();
         flag = fire(*player_opponent, aim, board_size);
-    }
-    player_active->last_shot = &(player_opponent->player_board[aim.x][aim.y]);
+        
+        while (flag == INVALID) { // Repite hasta que las coordenadas sean válidas
+            printf(UNDERLINE_COLOR"\n\t¡No se puede disparar ahí! Prueba de nuevo.");
+            aim = get_coord();
+            flag = fire(*player_opponent, aim, board_size);
+        }
 
-    if (flag == VALID_HIT) {    // target was hit
-        if (ship_hit_check(*player_opponent))   // ship was sunk
-            if (victory_check(*player_opponent)) {  // victory screen
-                default_screen(*player_active, *player_opponent, board_size);
-                printf(BRIGHT_RED_COLOR"\n\t##################################\n");
-                printf("\t##################################\n");
-                printf("\t  ------- VICTORIA PARA %s -------\n", player_active->nick);
-                printf("\t##################################\n");
-                printf("\t##################################\n");
-                return 1;
+        player_active->last_shot = &(player_opponent->player_board[aim.x][aim.y]);
+
+        if (flag == VALID_HIT) { // Si el disparo fue un acierto
+            if (ship_hit_check(*player_opponent)) { // Verifica si el barco fue hundido
+                if (victory_check(*player_opponent)) { // Condición de victoria
+                    default_screen(*player_active, *player_opponent, board_size);
+                    printf(BRIGHT_GREEN_COLOR"\n\t##################################\n");
+                    printf("\t##################################\n");
+                    printf("\t  ------- VICTORIA DE %s -------\n", player_active->nick);
+                    printf("\t##################################\n");
+                    printf("\t##################################\n");
+                    return 1;
+                }
             }
-    }
+            // Si el disparo fue exitoso, el jugador mantiene el turno
+            printf(BRIGHT_GREEN_COLOR"\n\t¡Acertaste! Puedes disparar nuevamente.\n");
+        } else {
+            // Si el disparo falló, sale del bucle y cambia el turno
+            printf(RED_COLOR"\n\t¡Fallaste! Es el turno del otro jugador.\n");
+        }
+
+    } while (flag == VALID_HIT); // Continúa mientras el jugador acierte (VALID_HIT)
+
     return 0;
 }
 
